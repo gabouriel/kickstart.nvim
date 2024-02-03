@@ -68,7 +68,7 @@ vim.opt.rtp:prepend(lazypath)
 --    as they will be available in your neovim runtime.
 require('lazy').setup({
   -- NOTE: First, some plugins that don't require any configuration
-      {
+{
   "pappasam/nvim-repl",
     init = function()
       vim.g["repl_filetype_commands"] = {
@@ -81,6 +81,7 @@ require('lazy').setup({
     { "<leader>rt", "<cmd>ReplToggle<cr>", desc = "Toggle Repl" },
     { "<leader>rc", "<cmd>ReplRunCell<cr>", desc = "Send Cell to Repl" },
   },
+},
   {
 	"L3MON4D3/LuaSnip",
 	-- follow latest release.
