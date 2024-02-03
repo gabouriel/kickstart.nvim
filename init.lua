@@ -68,7 +68,82 @@ vim.opt.rtp:prepend(lazypath)
 --    as they will be available in your neovim runtime.
 require('lazy').setup({
   -- NOTE: First, some plugins that don't require any configuration
+      {
+  "pappasam/nvim-repl",
+    init = function()
+      vim.g["repl_filetype_commands"] = {
+        javascript = "node",
+        python = "python -m IPython --no-autoindent",
+        ocaml = "utop"
+      }
+    end,
+    keys = {
+    { "<leader>rt", "<cmd>ReplToggle<cr>", desc = "Toggle Repl" },
+    { "<leader>rc", "<cmd>ReplRunCell<cr>", desc = "Send Cell to Repl" },
+  },
+  {
+	"L3MON4D3/LuaSnip",
+	-- follow latest release.
+	version = "v2.*", -- Replace <CurrentMajor> by the latest released major (first number of latest release)
+	-- install jsregexp (optional!).
+	build = "make install_jsregexp"
+  },
+  {
+  "neovim/nvim-lspconfig",
+  requires = { "L3MON4D3/LuaSnip", "lervag/vimtex" },
+  config = function()
+    lspconfig.ocamllsp.setup({
+    on_attach = on_attach,
+    capabilities = capabilities,
+    root_dir = lspconfig.util.root_pattern("*.opam", "esy.json", "package.json", ".git", "dune-project", "dune-workspace"),
+    filetypes = { "ocaml", "ocaml.menhir", "ocaml.interface", "ocaml.ocamllex", "reason", "dune" },
+    single_file_support = true
+  })
+  lspconfig.pyright.setup ({
+    on_attach = on_attach,
+    capabilities = capabilities,
+    filetypes = {"python"}
+  })
+  lspconfig.texlab.setup ({
+    on_attach = on_attach,
+    capabilities = capabilities,
+    filetypes = {"latex", "tex"}
+  })
+   end,
+  },
+  {
+    "lervag/vimtex",
+    ft = { "tex" },
+    init = function()
+      vim.g.tex_flavor = "latex"
+      vim.g.vimtex_quickfix_mode = 0
+      vim.g.vimtex_mappings_enabled = 0
+      vim.g.vimtex_indent_enabled = 0
+      vim.g.tex_conceal = "abdmg"
 
+      vim.g.vimtex_view_method = "zathura"
+      vim.g.vimtex_context_pdf_viewer = "zathura"
+    end,
+  },
+  {"lambdalisue/suda.vim",
+    lazy = false,
+    init = function()
+      vim.g.suda_smart_edit = 1
+    end,
+  },
+  {
+    "Mofiqul/adwaita.nvim",
+    lazy = false,
+    priority = 1000,
+    
+    -- configure and set on startup
+    config = function()
+        vim.g.adwaita_darker = true             -- for darker version
+        vim.g.adwaita_disable_cursorline = true -- to disable cursorline
+        vim.g.adwaita_transparent = true        -- makes the background transparent
+        vim.cmd('colorscheme adwaita')
+    end
+  },
   -- Git related plugins
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',
@@ -83,7 +158,22 @@ require('lazy').setup({
     'neovim/nvim-lspconfig',
     dependencies = {
       -- Automatically install LSPs to stdpath for neovim
-      { 'williamboman/mason.nvim', config = true },
+      { 'williamboman/mason.nvim',
+               opts = {
+      ensure_installed = {
+        "lua-language-server",
+        "html-lsp",
+        "prettier",
+        "stylua",
+        "latexindent",
+        "ocaml-lsp",
+        "ocamlformat",
+        "black",
+        "pyright",
+          },
+        },
+      config = true 
+      },
       'williamboman/mason-lspconfig.nvim',
 
       -- Useful status updates for LSP
@@ -188,21 +278,47 @@ require('lazy').setup({
       end,
     },
   },
-
-  {
-    -- Theme inspired by Atom
-    'navarasu/onedark.nvim',
-    priority = 1000,
-    lazy = false,
-    config = function()
-      require('onedark').setup {
-        -- Set a style preset. 'dark' is default.
-        style = 'dark', -- dark, darker, cool, deep, warm, warmer, light
-      }
-      require('onedark').load()
-    end,
-  },
-
+      {
+  "nvimtools/none-ls.nvim",
+  event = "LazyFile",
+  dependencies = { "mason.nvim" },
+  init = function()
+    Util.on_very_lazy(function()
+      -- register the formatter with LazyVim
+      require("lazyvim.util").format.register({
+        name = "none-ls.nvim",
+        priority = 200, -- set higher than conform, the builtin formatter
+        primary = true,
+        format = function(buf)
+          return Util.lsp.format({
+            bufnr = buf,
+            filter = function(client)
+              return client.name == "null-ls"
+            end,
+          })
+        end,
+        sources = function(buf)
+          local ret = require("null-ls.sources").get_available(vim.bo[buf].filetype, "NULL_LS_FORMATTING") or {}
+          return vim.tbl_map(function(source)
+            return source.name
+          end, ret)
+        end,
+      })
+    end)
+  end,
+  opts = function(_, opts)
+    local nls = require("null-ls")
+    opts.root_dir = opts.root_dir
+      or require("null-ls.utils").root_pattern(".null-ls-root", ".neoconf.json", "Makefile", ".git")
+    opts.sources = vim.list_extend(opts.sources or {}, {
+      null_ls.builtins.formatting.ocamlformat
+      nls.builtins.formatting.fish_indent,
+      nls.builtins.diagnostics.fish,
+      nls.builtins.formatting.stylua,
+      nls.builtins.formatting.shfmt,
+    })
+  end,
+}
   {
     -- Set lualine as statusline
     'nvim-lualine/lualine.nvim',
@@ -210,7 +326,7 @@ require('lazy').setup({
     opts = {
       options = {
         icons_enabled = false,
-        theme = 'auto',
+        theme = 'adwaita',
         component_separators = '|',
         section_separators = '',
       },
@@ -277,6 +393,10 @@ require('lazy').setup({
 -- [[ Setting options ]]
 -- See `:help vim.o`
 -- NOTE: You can change these options as you wish!
+
+vim.o.foldmethod = "expr"
+vim.o.foldexpr = "nvim_treesitter#foldexpr()"
+vim.o.foldenable = false
 
 -- Set highlight on search
 vim.o.hlsearch = false
